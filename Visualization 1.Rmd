@@ -12,19 +12,23 @@ library(ggridges)
 ```{r}
 #THIS WILL TAKE A WHILE
 weather_df = 
-  rnoaa::meteo_pull_monitors(c("USW00094728", "USC00519397",
+  rnoaa::meteo_pull_monitors(c("USW00094728",
+                               "USC00519397",
                                "USS0023B17S"),
                       var = c("PRCP", "TMIN", "TMAX"), 
                       date_min = "2017-01-01",
                       date_max = "2017-12-31") %>% 
-  mutate(
-    name = recode(id, USW00094728 = "CentralPark_NY", 
+  
+  mutate(name = recode(id, USW00094728 = "CentralPark_NY", 
                       USC00519397 = "Waikiki_HA",
                       USS0023B17S = "Waterhole_WA"),
-    tmin = tmin / 10,
-    tmax = tmax / 10) %>% 
+       tmin = tmin / 10,
+       tmax = tmax / 10) %>% 
+  
   select(name, id, everything())
 ```
+
+
 ```{r}
 #Basic scatter plot of min vs. max temp
 ggplot(weather_df, aes(x = tmin, y = tmax)) + geom_point()
@@ -127,3 +131,34 @@ weather_df %>%
   geom_boxplot()
 ```
 
+## Ridge Plots
+```{r}
+ggplot(weather_df, aes(x = tmax, y = name)) + 
+  geom_density_ridges(scale = .85)
+```
+
+# Saving & Exporting
+```{r}
+#Save this plot as a variable first
+ridge_plot = ggplot(weather_df, aes(x = tmax, y = name)) + 
+  geom_density_ridges(scale = .85)
+
+ggsave("ggplot_ridge.pdf", ridge_plot)
+```
+
+## Embedding plots in R Markdown
+Pay attention to figure width in code chunk options!!
+```{r fig.width=6}
+weather_df %>% 
+  ggplot(aes(x = tmin, y = tmax)) + 
+  geom_point(aes(color = name), alpha = .5) +
+  geom_smooth(se = FALSE)
+```
+
+```{r fig.width=12}
+weather_df %>% 
+  ggplot(aes(x = tmin, y = tmax)) + 
+  geom_point(aes(color = name), alpha = .5) +
+  geom_smooth(se = FALSE)
+```
+ 
