@@ -1,0 +1,165 @@
+---
+title: "Visualization 2"
+author: Alison Elgass
+output: github_document
+---
+
+```{r include=FALSE}
+library(tidyverse)
+library(ggridges)
+library(patchwork)
+```
+
+# Load in & clean/tidy data
+Cache=true means it won't re-download on each knit
+```{r cache=TRUE}
+#THIS WILL TAKE A WHILE
+weather_df = 
+  rnoaa::meteo_pull_monitors(c("USW00094728",
+                               "USC00519397",
+                               "USS0023B17S"),
+                      var = c("PRCP", "TMIN", "TMAX"), 
+                      date_min = "2017-01-01",
+                      date_max = "2017-12-31") %>% 
+  
+  mutate(name = recode(id, USW00094728 = "CentralPark_NY", 
+                      USC00519397 = "Waikiki_HA",
+                      USS0023B17S = "Waterhole_WA"),
+       tmin = tmin / 10,
+       tmax = tmax / 10) %>% 
+  
+  select(name, id, everything())
+```
+
+# Add labels & ticks
+```{r}
+weather_df %>% 
+  ggplot(aes(x = tmin, y = tmax)) + 
+  geom_point(aes(color = name), alpha = .5) + 
+  labs(
+    title = "Temperature plot",
+    x = "Minimum daily temperature (C)",
+    y = "Maxiumum daily temperature (C)",
+    caption = "Data from the rnoaa package"
+  ) +
+ scale_x_continuous(
+    breaks = c(-15, 0, 15), 
+    labels = c("-15º C", "0", "15")
+  ) +
+  scale_color_hue(
+    name = "Weather Station",
+    h = c(50, 200)
+ )
+```
+
+
+# Create base plot, use Viridis Package
+```{r}
+#This time we "save" the plot as a variable to use later
+base_temp_plot = 
+  weather_df %>% 
+  ggplot(aes(x = tmin, y = tmax)) + 
+  geom_point(aes(color = name), alpha = .5) + 
+  labs(
+    title = "Temperature plot",
+    x = "Minimum daily temperature (C)",
+    y = "Maxiumum daily temperature (C)",
+    caption = "Data from the rnoaa package"
+  ) + 
+  viridis::scale_color_viridis(
+    name = "Location", 
+    discrete = TRUE
+  )
+
+base_temp_plot #now display it
+```
+
+## Themes (ORDER MATTERS)
+```{r}
+base_temp_plot +
+  theme_minimal() + #many theme options!
+  theme(legend.position = "bottom")
+  
+```
+
+### Side note on warnings
+Warning message: remove 15 rows containing missing values
+It's ok, ggplot leaves them out of plot
+```{r}
+#see these 15 rows have missing values 
+weather_df %>% 
+  filter(is.na(tmin))
+```
+
+# Using patchwork package for multiple panels
+```{r}
+#Filter data by location, create 3 separate df's
+central_park = 
+  weather_df %>% 
+  filter(name == "CentralPark_NY")
+
+waikiki = 
+  weather_df %>% 
+  filter(name == "Waikiki_HA")
+
+ggplot(data = waikiki, 
+       aes(x = date, y = tmax, color = name)) +
+  geom_point() + 
+  geom_line(data = central_park)
+```
+
+```{r}
+tmax_tmin_p = 
+  weather_df %>% 
+  ggplot(aes(x = tmax, y = tmin, color = name)) + 
+  geom_point(alpha = .5) +
+  theme(legend.position = "none")
+
+prcp_dens_p = 
+  weather_df %>% 
+  filter(prcp > 0) %>% 
+  ggplot(aes(x = prcp, fill = name)) + 
+  geom_density(alpha = .5) + 
+  theme(legend.position = "none")
+
+tmax_date_p = 
+  weather_df %>% 
+  ggplot(aes(x = date, y = tmax, color = name)) + 
+  geom_point(alpha = .5) +
+  geom_smooth(se = FALSE) + 
+  theme(legend.position = "bottom")
+
+(tmax_tmin_p + prcp_dens_p) / tmax_date_p
+```
+
+
+# Data Manipulation
+Using forcats & factors (more examples online)
+```{r}
+weather_df %>%
+  mutate(
+    name = forcats::fct_relevel(
+      name, 
+      c("Waikiki_HA", "CentralPark_NY", "Waterhole_WA"))
+  ) %>% 
+  ggplot(aes(x = name, y = tmax)) + 
+  geom_violin(aes(fill = name), color="blue", alpha=0.5) + 
+  theme(legend.position = "bottom")
+```
+
+## Restructure then plot
+```{r}
+weather_df %>%
+  pivot_longer(
+    tmax:tmin,
+    names_to = "observation", 
+    values_to = "temp"
+  ) #NOT WORKING!!!!!!!!!!!!!!!
+
+  ggplot(weather_df, aes(x = temp, fill = observation)) +
+    geom_density(alpha = .5)
+
+```
+
+
+
