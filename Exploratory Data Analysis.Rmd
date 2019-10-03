@@ -1,0 +1,168 @@
+---
+title: "Exploratory Data Analysis"
+author: Alison Elgass
+output: github_document
+---
+
+```{r include=FALSE}
+library(tidyverse)
+library(ggridges)
+```
+
+# Load in & clean/tidy data
+(cache = true means it won't re-download on each knit)
+```{r cache=TRUE}
+#THIS WILL TAKE A WHILE
+weather_df = 
+  rnoaa::meteo_pull_monitors(c("USW00094728",
+                               "USC00519397",
+                               "USS0023B17S"),
+                      var = c("PRCP", "TMIN", "TMAX"), 
+                      date_min = "2017-01-01",
+                      date_max = "2017-12-31") %>% 
+  
+  mutate(name = recode(id, USW00094728 = "CentralPark_NY", 
+                      USC00519397 = "Waikiki_HA",
+                      USS0023B17S = "Waterhole_WA"),
+       tmin = tmin / 10,
+       tmax = tmax / 10, 
+  month = lubridate::floor_date(date, unit = "month")) %>%
+  
+  select(name, id, month, everything())
+```
+
+
+# Using 'group_by' and 'count'
+```{r}
+weather_df %>% 
+  group_by(month) %>% 
+  summarize(
+    n_obs = n(), #number of entries
+    n_unique = n_distinct(date))
+```
+
+Use 'count' instead to do the same thing as above
+```{r}
+weather_df %>% 
+    count(month) #like saying group by name, then count
+
+weather_df %>% 
+    count(month, name = "n_days") #specify name of new col
+```
+
+Let's make a nice table
+```{r}
+weather_df %>% 
+  count(name) %>% 
+  knitr::kable() #MAKES IT PRETTY!!!
+```
+
+## 2 x 2 tables, a digression...
+
+Two ways to do it (but Jeff is anti 2x2 table)
+```{r}
+weather_df %>% 
+  filter(name != "Waikiki_HA") %>% 
+  mutate(                    #create new column 'cold'
+    cold = case_when(        #using this new fxn
+      tmax < 5  ~ "cold",
+      tmax >= 5 ~ "not cold",
+      TRUE      ~ "")
+    ) %>% 
+  
+  group_by(name, cold) %>% 
+  count() %>% 
+  pivot_wider(
+    names_from = cold,
+    values_from = n
+  )
+  
+```
+
+```{r}
+weather_df %>% 
+  filter(name != "Waikiki_HA") %>% 
+  mutate( 
+    cold = case_when(
+      tmax < 5  ~ "cold",
+      tmax >= 5 ~ "not cold",
+      TRUE      ~ "")
+    ) %>% 
+  
+  janitor::tabyl(name, cold)
+```
+
+# Some summaries
+```{r}
+weather_df %>% 
+  group_by(name, month) %>% #group by 3 locations
+  summarize( #create cols: count, mean, sd, median
+    n = n(),
+    mean_tmax = mean(tmax, na.rm = TRUE),
+    sd_tmax = sd(tmax, na.rm = TRUE),
+    median_pprcp = median(prcp, na.rm = TRUE)
+  ) %>% 
+  ggplot(aes(x = month, y = mean_tmax, color = name)) + 
+           geom_point() + geom_line()
+```
+
+"Un-tidy" using pivot_wider to make it more reader-friendly
+```{r}
+weather_df %>%
+  group_by(name, month) %>%
+  summarize(
+    mean_tmax = mean(tmax)
+    ) %>% 
+  pivot_wider(
+    names_from = name,
+    values_from = mean_tmax
+    ) %>% 
+  knitr::kable(digits = 1)
+```
+
+## Grouped mutates
+
+(don't forget you can ungroup...)
+```{r results = FALSE}
+weather_df %>% 
+  group_by(name) %>% 
+  ungroup()
+```
+
+```{r}
+#same df (still 1095 rows), but new column 'mean_tmax' is by group (so all Central Park rows have same mean)
+weather_df %>% 
+  group_by(name, month) %>% 
+  mutate(                             #create new columns
+    mean_tmax = mean(tmax, na.rm = TRUE), #group-specific
+    centered_tmax = tmax - mean_tmax      
+  ) %>% 
+  view
+```
+
+window functions in grouped mutates
+```{r}
+weather_df %>% 
+  group_by(name, month) %>% 
+  mutate(
+    tmax_rank = min_rank(tmax) #rank by coldest max temp
+                               #in each location
+  ) %>%                        #in each month
+  filter(tmax_rank == 1) %>%   #now show #1's (3)
+  view
+```
+
+logs and leads...
+```{r}
+weather_df %>% 
+  group_by(name) %>% 
+  mutate(
+    lagged_tmax = lag(tmax), #yesterday's tmax
+    one_day_change = tmax - lagged_tmax
+  ) %>% 
+  summarize(sd_daily_change = 
+              sd(one_day_change, na.rm = TRUE)) %>% 
+  view
+```
+
+

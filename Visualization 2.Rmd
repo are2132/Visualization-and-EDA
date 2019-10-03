@@ -134,14 +134,21 @@ tmax_date_p =
 
 
 # Data Manipulation
-Using forcats & factors (more examples online)
+Using forcats to order factors (more examples online)
 ```{r}
+#Order by specified
 weather_df %>%
   mutate(
-    name = forcats::fct_relevel(
-      name, 
+    name = forcats::fct_relevel(name, 
       c("Waikiki_HA", "CentralPark_NY", "Waterhole_WA"))
   ) %>% 
+  ggplot(aes(x = name, y = tmax)) + 
+  geom_violin(aes(fill = name), color="blue", alpha=0.5) + 
+  theme(legend.position = "bottom")
+
+#Order by tmax
+weather_df %>%
+  mutate(name = forcats::fct_reorder(name, tmax)) %>% 
   ggplot(aes(x = name, y = tmax)) + 
   geom_violin(aes(fill = name), color="blue", alpha=0.5) + 
   theme(legend.position = "bottom")
